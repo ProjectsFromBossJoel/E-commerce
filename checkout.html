@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Checkout — Clothing-Tari</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { font-family: "Nunito", "Open Sans", sans-serif; background:#f8f9fa; padding-bottom:60px; }
+    .checkout-card { max-width: 980px; margin: 32px auto; }
+    .cart-item-img { width:60px; height:60px; object-fit:cover; border-radius:6px; }
+    .locked { opacity: .6; pointer-events: none; }
+    .badge-count { min-width:22px; display:inline-block; }
+    .small-muted { font-size:.9rem; color:#6c757d; }
+  </style>
+</head>
+<body>
+
+<div class="container checkout-card">
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h3 class="mb-3"><a href="index.html"><button id="modalProceedBtn" class="btn btn-primary">Go Home</button></a> Checkout  </h3>
+
+      <div class="row g-4">
+        <!-- Left: Customer Form -->
+        <div class="col-md-6">
+          <h5>Customer Details</h5>
+          <form id="checkoutForm" novalidate>
+            <div class="mb-3">
+              <label class="form-label">Enter Full Name</label>
+              <input id="fullName" class="form-control" required />
+              <div class="invalid-feedback">Full name is required.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Contact</label>
+              <input id="contact" class="form-control" required pattern="^[0-9+\-\s()]{6,}$" />
+              <div class="invalid-feedback">Enter a valid phone number.</div>
+              <div class="small-muted mt-1">You will recieve a five digit code for items verification.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <input id="email" type="email" class="form-control" required />
+              <div class="invalid-feedback">Enter a valid email.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Residential Address</label>
+              <textarea id="resAddress" class="form-control" rows="2" required></textarea>
+              <div class="invalid-feedback">Residential address is required.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">GPS Address (Digital)</label>
+              <input id="gpsAddress" class="form-control" placeholder="e.g. GA-123-4567 or 5.6037, -0.1870" required />
+              <div class="invalid-feedback">GPS / Digital address is required.</div>
+            </div>
+
+            <br><i>Kindly click the <b>"Confirm Items Button"</b> before you proceed to payment page.</i><br>
+            <div class="d-flex gap-2">
+              <button id="confirmBtn" type="button" class="btn btn-outline-primary">Confirm Items</button>
+              <button id="proceedBtn" type="button" class="btn btn-primary">Proceed To Payment</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Right: Cart summary -->
+        <div class="col-md-6">
+          <h5>Your Cart <span id="cartBadge" class="badge bg-primary badge-count ms-2">0</span></h5>
+
+          <div id="cartContainer" class="list-group mb-2"></div>
+
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            <div>
+              <div class="small-muted">Subtotal</div>
+              <strong id="subtotal">$0.00</strong>
+            </div>
+            <div>
+              <div class="small-muted">Delivery</div>
+              <strong id="deliveryFee">$0.00</strong>
+            </div>
+            <div>
+              <div class="small-muted">Grand Total</div>
+              <h5 id="grandTotal">$0.00</h5>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <button id="viewCartPopupBtn" class="btn btn-outline-secondary btn-sm">View Cart Popup</button>
+            <button id="clearCartBtn" class="btn btn-link text-danger btn-sm">Clear Cart</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="messageArea" class="mt-4"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Cart Popup Modal (same page popup) -->
+<div class="modal fade" id="cartModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cart Items</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="modalCartList" class="list-group"></div>
+        <div class="mt-3 d-flex justify-content-between align-items-center">
+          <div>
+            <div class="small-muted">Grand Total</div>
+            <strong id="modalGrand">$0.00</strong>
+          </div>
+          <div>
+            <button id="modalConfirmBtn" class="btn btn-outline-primary">Confirm Items</button>
+            <button id="modalProceedBtn" class="btn btn-primary">Proceed To Payment</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/*
+  Checkout page script (LocalStorage option)
+  - Expects localStorage key 'cartItems' => array of {id,name,price,qty,image}
+  - APPS_SCRIPT_URL: set to your deployed Apps Script webapp URL
+*/
+
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/YOUR_DEPLOYED_URL/exec"; // <<< REPLACE THIS
+
+// DOM
+const cartContainer = document.getElementById("cartContainer");
+const cartBadge = document.getElementById("cartBadge");
+const subtotalEl = document.getElementById("subtotal");
+const deliveryEl = document.getElementById("deliveryFee");
+const grandEl = document.getElementById("grandTotal");
+const messageArea = document.getElementById("messageArea");
+const checkoutForm = document.getElementById("checkoutForm");
+
+const modal = new bootstrap.Modal(document.getElementById("cartModal"));
+const modalCartList = document.getElementById("modalCartList");
+const modalGrand = document.getElementById("modalGrand");
+
+let cartItems = [];
+let locked = false;
+const DELIVERY_FEE = 0; // change as needed
+
+// Helpers
+function formatMoney(n){ return `$${n.toFixed(2)}`; }
+
+function loadCartFromStorage(){
+  try {
+    const raw = localStorage.getItem("cartItems");
+    cartItems = raw ? JSON.parse(raw) : [];
+    // normalize fields
+    cartItems = cartItems.map(item => ({
+      id: item.id ?? item.name,
+      name: item.name ?? "Product",
+      price: typeof item.price === "string" ? parseFloat(item.price) : (item.price ?? 0),
+      qty: Number(item.qty ?? item.quantity ?? 1),
+      image: item.image ?? ""
+    }));
+  } catch(e){
+    console.error("Failed to load cart:", e);
+    cartItems = [];
+  }
+}
+
+function saveCartToStorage(){
+  localStorage.setItem("cartItems", JSON.stringify(cartItems));
+}
+
+function renderCart(){
+  cartContainer.innerHTML = "";
+  modalCartList.innerHTML = "";
+
+  let subtotal = 0;
+  let count = 0;
+
+  if(cartItems.length === 0){
+    cartContainer.innerHTML = '<div class="small text-muted">Your cart is empty.</div>';
+    modalCartList.innerHTML = '<div class="small text-muted">No items in cart.</div>';
+  } else {
+    cartItems.forEach((it, idx) => {
+      const itemTotal = it.price * it.qty;
+      subtotal += itemTotal;
+      count += it.qty;
+
+      // list-group item for page
+      const li = document.createElement("div");
+      li.className = "list-group-item d-flex align-items-center gap-3";
+      li.innerHTML = `
+        <img src="${it.image || 'https://via.placeholder.com/60'}" class="cart-item-img" alt="">
+        <div class="flex-grow-1">
+          <div><strong>${escapeHtml(it.name)}</strong></div>
+          <div class="small-muted">Unit: ${formatMoney(Number(it.price))} &middot; Subtotal: ${formatMoney(itemTotal)}</div>
+        </div>
+        <div style="min-width:120px;" class="text-end">
+          <input type="number" min="1" step="1" class="form-control form-control-sm cart-qty" data-index="${idx}" value="${it.qty}" style="width:96px; display:inline-block;">
+          <div class="mt-2"><button class="btn btn-sm btn-outline-danger btn-remove" data-index="${idx}">Remove</button></div>
+        </div>
+      `;
+      if(locked) li.classList.add("locked");
+      cartContainer.appendChild(li);
+
+      // modal item
+      const m = document.createElement("div");
+      m.className = "list-group-item d-flex align-items-center justify-content-between";
+      m.innerHTML = `
+        <div>
+          <strong>${escapeHtml(it.name)}</strong>
+          <div class="small-muted">Qty: ${it.qty} &middot; ${formatMoney(itemTotal)}</div>
+        </div>
+        <div>${formatMoney(itemTotal)}</div>
+      `;
+      modalCartList.appendChild(m);
+    });
+  }
+
+  subtotalEl.textContent = formatMoney(subtotal);
+  deliveryEl.textContent = formatMoney(DELIVERY_FEE);
+  grandEl.textContent = formatMoney(subtotal + DELIVERY_FEE);
+  modalGrand.textContent = formatMoney(subtotal + DELIVERY_FEE);
+
+  cartBadge.textContent = cartItems.reduce((s,i) => s + Number(i.qty), 0);
+  attachCartListeners();
+}
+
+// Attach listeners to dynamic controls inside cart list
+function attachCartListeners(){
+  // qty inputs
+  document.querySelectorAll(".cart-qty").forEach(input => {
+    input.onchange = (e) => {
+      if(locked) return;
+      const idx = Number(e.target.dataset.index);
+      let val = parseInt(e.target.value) || 1;
+      if(val < 1) val = 1;
+      cartItems[idx].qty = val;
+      saveCartToStorage();
+      renderCart();
+    };
+  });
+
+  // remove buttons
+  document.querySelectorAll(".btn-remove").forEach(btn => {
+    btn.onclick = (e) => {
+      if(locked) return;
+      const idx = Number(e.target.dataset.index);
+      cartItems.splice(idx, 1);
+      saveCartToStorage();
+      renderCart();
+    };
+  });
+}
+
+function lockCart(){
+  locked = true;
+  document.querySelectorAll(".cart-qty, .btn-remove").forEach(el => el.disabled = true);
+  document.querySelectorAll(".btn, input, textarea").forEach(el => {
+    if(el.id === "proceedBtn" || el.id === "confirmBtn" || el.id === "modalProceedBtn" || el.id === "modalConfirmBtn") return;
+    // keep form usable but you can restrict as needed
+  });
+  showMessage("Items confirmed. You can now proceed to payment.", "success");
+  renderCart();
+}
+
+function showMessage(text, type="info"){
+  messageArea.innerHTML = `<div class="alert alert-${type}">${escapeHtml(text)}</div>`;
+  setTimeout(() => { messageArea.innerHTML = ""; }, 6000);
+}
+
+function escapeHtml(unsafe) {
+  return String(unsafe)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+// Compose order payload
+function buildOrderPayload(){
+  const customer = {
+    fullName: document.getElementById("fullName").value.trim(),
+    contact: document.getElementById("contact").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    residentialAddress: document.getElementById("resAddress").value.trim(),
+    gpsAddress: document.getElementById("gpsAddress").value.trim()
+  };
+
+  const items = cartItems.map(it => ({
+    id: it.id, name: it.name, price: Number(it.price), qty: Number(it.qty),
+    total: Number(it.price) * Number(it.qty)
+  }));
+
+  const subtotal = items.reduce((s,i) => s + i.total, 0);
+  const grand = subtotal + DELIVERY_FEE;
+
+  return {
+    timestamp: (new Date()).toISOString(),
+    customer,
+    items,
+    subtotal,
+    delivery: DELIVERY_FEE,
+    grandTotal: grand,
+    note: "" // reserved
+  };
+}
+
+// Validate fields
+function validateForm(){
+  checkoutForm.classList.add('was-validated');
+  const valid = checkoutForm.checkValidity();
+  if(!valid) {
+    showMessage("Please complete all required fields correctly.", "danger");
+  }
+  return valid;
+}
+
+// Send order to Apps Script
+async function sendOrderToAppsScript(payload){
+  if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes("YOUR_DEPLOYED_URL")){
+    showMessage("Please set the APPS_SCRIPT_URL in the script to your deployed Apps Script URL.", "warning");
+    return { ok:false, message: "No Apps Script URL set" };
+  }
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    return { ok: resp.ok && data.success, data, status: resp.status };
+  } catch(err){
+    console.error("Send failed:", err);
+    return { ok:false, message: err.message || "Network error" };
+  }
+}
+
+// Actions
+document.getElementById("confirmBtn").addEventListener("click", () => {
+  if(cartItems.length === 0){ showMessage("Cart is empty.", "warning"); return; }
+  lockCart();
+});
+
+document.getElementById("viewCartPopupBtn").addEventListener("click", () => {
+  renderCart();
+  modal.show();
+});
+
+document.getElementById("modalConfirmBtn").addEventListener("click", () => {
+  if(cartItems.length === 0){ showMessage("Cart is empty.", "warning"); return; }
+  lockCart();
+  modal.hide();
+});
+
+document.getElementById("clearCartBtn").addEventListener("click", () => {
+  if(!confirm("Clear the cart?")) return;
+  cartItems = [];
+  saveCartToStorage();
+  renderCart();
+});
+
+// proceed buttons (page + modal) - same logic
+async function proceedHandler(){
+  if(cartItems.length === 0){ showMessage("Cart is empty.", "warning"); return; }
+  if(!validateForm()) return;
+  // ensure items are confirmed (we expect user to confirm first)
+  if(!locked){
+    if(!confirm("You haven't confirmed items. Confirm now?")) return;
+    lockCart();
+  }
+  const payload = buildOrderPayload();
+
+  showMessage("Submitting order... please wait.", "info");
+
+  const res = await sendOrderToAppsScript(payload);
+  if(res.ok){
+    showMessage("Order submitted successfully. Thank you!", "success");
+    // clear cart and form
+    cartItems = [];
+    saveCartToStorage();
+    checkoutForm.reset();
+    locked = false;
+    renderCart();
+    // optional: redirect to payment processor here
+  } else {
+    showMessage("Failed to submit order: " + (res.data?.message || res.message || res.status || "Unknown"), "danger");
+  }
+}
+
+document.getElementById("proceedBtn").addEventListener("click", proceedHandler);
+document.getElementById("modalProceedBtn").addEventListener("click", () => {
+  modal.hide();
+  proceedHandler();
+});
+
+// initial load
+loadCartFromStorage();
+renderCart();
+
+</script>
+</body>
+</html>
