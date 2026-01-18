@@ -259,7 +259,7 @@
             <p class="fs-4">Shop With Us.</p>
             <div class="d-flex gap-3">
               <a href="#" class="btn btn-primary text-uppercase fs-6 rounded-pill px-4 py-3 mt-3">Start Shopping</a>
-              <a href="#" class="btn btn-dark text-uppercase fs-6 rounded-pill px-4 py-3 mt-3">Join Now</a>
+              <a href="https://wa.me/233500186379" class="btn btn-dark text-uppercase fs-6 rounded-pill px-4 py-3 mt-3">Join Now</a>
             </div>
             <div class="row my-5">
               <div class="col">
@@ -2116,12 +2116,6 @@ document.getElementById("viewCartBtn").addEventListener("click", () => {
     document.getElementById("cartPopup").style.display = "none";
 });
 
-
-
-
-
-
-
     </script>
     
     <!-- CART POPUP -->
@@ -2129,9 +2123,7 @@ document.getElementById("viewCartBtn").addEventListener("click", () => {
   <div class="cart-popup-content">
     <h4>Item Added to Cart</h4>
     <p>Your item has been added successfully.
-      <button id="viewCartBtn" class="btn btn-primary btn-sm w-100 mt-2">
-      View Cart
-    </button>
+      
     </p>
     <button id="closeCartPopup">Close</button>
   </div>
@@ -2242,7 +2234,7 @@ document.querySelectorAll(".add-to-cart").forEach(btn => {
         localStorage.setItem("cartItems", JSON.stringify(cart));
         updateCartCount();
 
-        alert(`${name} added to cart!`);
+       
     });
 });
 </script>
@@ -2258,6 +2250,17 @@ document.querySelectorAll(".add-to-cart").forEach(btn => {
         0
     </span>
 </div>
+
+<script>
+document.getElementById("floatingCartBtn").addEventListener("click", () => {
+    const offcanvasCart = document.getElementById("offcanvasCart");
+
+    // Open Bootstrap Offcanvas
+    const bsOffcanvas = new bootstrap.Offcanvas(offcanvasCart);
+    bsOffcanvas.show();
+});
+</script>
+
 
 <script>
 function updateCartCount() {
@@ -2277,6 +2280,42 @@ function updateCartCount() {
 updateCartCount();
 </script>
 
+
+<script>
+document.addEventListener("DOMContentLoaded", loadCartIntoOffcanvas);
+
+function loadCartIntoOffcanvas() {
+    let cart = JSON.parse(localStorage.getItem("cartItems")) || [];
+    const cartList = document.querySelector("#offcanvasCart .list-group");
+
+    // Remove old dynamic items
+    cartList.querySelectorAll(".cart-item").forEach(el => el.remove());
+
+    let total = 0;
+
+    cart.forEach(item => {
+        const li = document.createElement("li");
+        li.className = "list-group-item d-flex justify-content-between align-items-center cart-item";
+
+        const itemTotal = item.price * item.qty;
+        total += itemTotal;
+
+        li.innerHTML = `
+            <div>
+                <h6 class="my-0">${item.name}</h6>
+                <small class="text-body-secondary">Qty: ${item.qty}</small>
+            </div>
+            <span>$${itemTotal.toFixed(2)}</span>
+        `;
+
+        cartList.insertBefore(li, cartList.lastElementChild);
+    });
+
+    // Update total
+    const totalDisplay = cartList.querySelector("strong");
+    totalDisplay.textContent = "$" + total.toFixed(2);
+}
+</script>
 
 
   </body>
